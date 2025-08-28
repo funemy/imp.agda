@@ -1,3 +1,4 @@
+# This Makefile is shamelessly copied from agda-categories
 .PHONY: test Everything.agda clean
 
 OTHEROPTS = --auto-inline -Werror

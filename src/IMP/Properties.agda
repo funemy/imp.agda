@@ -1,5 +1,11 @@
 module IMP.Properties where
 
+open import Data.Maybe using (just)
+open import IMP.Base
+open import IMP.BigStep
+open import IMP.SmallStep
+open import IMP.Syntax
+
 -- For any big-step intepretation that doesn't raise exceptions,
 -- there is a corresponding small-step derivation sequence.
 -- Proof sketch:
