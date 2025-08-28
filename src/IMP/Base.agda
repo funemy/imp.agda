@@ -1,0 +1,81 @@
+module IMP.Base where
+
+open import IMP.Syntax
+open import Data.Bool using (Bool; true; false; _∧_; if_then_else_; not)
+open import Data.Integer as I using (ℤ; +_; -_)
+open import Data.Maybe as M using (Maybe; just; nothing)
+open import Relation.Nullary.Decidable.Core using (isYes)
+
+-- Value is represented as numbers (i.e., integers)
+Value : Set
+Value = Num
+
+-- We are using the type `Maybe A` to model exceptional computation,
+-- where `nothing` represent some exceptions.
+-- Renaming `nothing` to `exn` here for clarity.
+exn : {A : Set} → Maybe A
+exn = nothing
+
+-- Value extended with a special case (i.e., `exn`) to denote exceptions.
+Value⊥ : Set
+Value⊥ = Maybe Num
+
+Bool⊥ : Set
+Bool⊥ = Maybe Bool
+
+vplus : Value⊥ → Value⊥ → Value⊥
+vplus (just x1) (just x2) = just (x1 I.+ x2)
+vplus _ _ = exn
+
+vmul : Value⊥ → Value⊥ → Value⊥
+vmul (just x1) (just x2) = just (x1 I.* x2)
+vmul _ _ = exn
+
+vsub : Value⊥ → Value⊥ → Value⊥
+vsub (just x1) (just x2) = just (x1 I.- x2)
+vsub _ _ = exn
+
+veq : Value⊥ → Value⊥ → Maybe Bool
+veq (just x1) (just x2) = just (isYes (x1 I.≟ x2))
+veq _ _ = exn
+
+vleq : Value⊥ → Value⊥ → Maybe Bool
+vleq (just x1) (just x2) = just (isYes (x1 I.≤? x2))
+vleq _ _ = exn
+
+vand : Maybe Bool → Maybe Bool → Maybe Bool
+vand (just b1) (just b2) = just (b1 ∧ b2)
+vand _ _ = exn
+
+-- Heap is represented as a function from symbols to values
+Heap : Set
+Heap = SSymbol → Value⊥
+
+-- heap update
+_[_:=_] : Heap → SSymbol → Num → Heap
+h [ s := v ] = λ x → if (s == x) then just v else h x
+
+-- heap access
+_[_] : Heap → SSymbol → Value⊥
+h [ s ] = h s
+
+-- an initial (i.e., empty) heap, where any access will leads to exceptions
+σ₀ : Heap
+σ₀ = λ x → exn
+
+-- denotational semantics for Arithmetic expressions (Aexp)
+A⟦_⟧_ : Aexp → Heap → Value⊥
+A⟦ num x ⟧ s = just x
+A⟦ var x ⟧ s = s x
+A⟦ plus a₁ a₂ ⟧ s = vplus (A⟦ a₁ ⟧ s) (A⟦ a₂ ⟧ s)
+A⟦ mul a₁ a₂ ⟧ s = vmul (A⟦ a₁ ⟧ s) (A⟦ a₂ ⟧ s)
+A⟦ sub a₁ a₂ ⟧ s = vsub (A⟦ a₁ ⟧ s) (A⟦ a₂ ⟧ s)
+
+-- denotational semantics for Boolean expressions (Bexp)
+B⟦_⟧_ : Bexp → Heap → Bool⊥
+B⟦ tt ⟧ s = just true
+B⟦ ff ⟧ s = just false
+B⟦ eq a₁ a₂ ⟧ s = veq (A⟦ a₁ ⟧ s) (A⟦ a₂ ⟧ s)
+B⟦ leq a₁ a₂ ⟧ s = vleq (A⟦ a₁ ⟧ s) (A⟦ a₂ ⟧ s)
+B⟦ lneg b ⟧ s = M.map not (B⟦ b ⟧ s)
+B⟦ land b₁ b₂ ⟧ s = vand (B⟦ b₁ ⟧ s) (B⟦ b₂ ⟧ s)
