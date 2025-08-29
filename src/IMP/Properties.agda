@@ -10,6 +10,7 @@ open import IMP.Syntax
 
 -- For any big-step intepretation that doesn't raise exceptions,
 -- there is a corresponding small-step derivation sequence.
+--
 -- Proof sketch:
 --    1. first case-splitting on statements (Stm) of IMP
 --    2. then doing induction on big-step derivation
@@ -62,6 +63,7 @@ prepend-[∙,∙]⟶∙-to-[∙,∙]⇓∙ (s-while-ff pred/ff) b-skip = b-while
 
 -- For any small-step derivation sequence defined by [∙,∙]⟶*∙,
 -- there is a corresponding big-step derivation.
+--
 -- Proof sketch:
 -- Notice that the definition of derivation sequence is basically a glorified inductive list;
 -- hence the proof is an induction over the list structure.
