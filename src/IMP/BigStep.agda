@@ -7,11 +7,11 @@ open import IMP.Syntax
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
 -- big-step semantics for Statement (Stm)
-data [_,_]⇓_ : (s : Stm) → (σ : Heap) → (σ' : Maybe Heap) → Set where
+data [_,_]⇓_ : (s : Stm) → (σ : State) → (σ' : Maybe State) → Set where
     b-assign :
         { x : SSymbol } →
         { aexp : Aexp } →
-        { σ : Heap } →
+        { σ : State } →
         { v : Value } →
         A⟦ aexp ⟧ σ ≡ just v →
     ----------------------------------------------------------
@@ -20,20 +20,20 @@ data [_,_]⇓_ : (s : Stm) → (σ : Heap) → (σ' : Maybe Heap) → Set where
     b-assign-⊥ :
         { x : SSymbol } →
         { aexp : Aexp } →
-        { σ : Heap } →
+        { σ : State } →
         A⟦ aexp ⟧ σ ≡ exn →
     ----------------------------------------------------------
         [ assign x aexp , σ ]⇓ exn
 
     b-skip :
-        { σ : Heap } →
+        { σ : State } →
     ----------------------------------------------------------
         [ skip , σ ]⇓ just σ
 
     b-seq :
         { stm1 stm2 : Stm} →
-        { σ σ'' : Heap } →
-        { σ'⊥ : Maybe Heap} →
+        { σ σ'' : State } →
+        { σ'⊥ : Maybe State} →
         [ stm1 , σ ]⇓ just σ'' →
         [ stm2 , σ'' ]⇓ σ'⊥ →
     ----------------------------------------------------------
@@ -41,7 +41,7 @@ data [_,_]⇓_ : (s : Stm) → (σ : Heap) → (σ' : Maybe Heap) → Set where
 
     b-seq-⊥ :
         { stm1 stm2 : Stm} →
-        { σ : Heap } →
+        { σ : State } →
         [ stm1 , σ ]⇓ exn →
     ----------------------------------------------------------
         [ seq stm1 stm2 , σ ]⇓ exn
@@ -49,8 +49,8 @@ data [_,_]⇓_ : (s : Stm) → (σ : Heap) → (σ' : Maybe Heap) → Set where
     b-ite-tt :
         { b : Bexp } →
         { stm1 stm2 : Stm } →
-        { σ : Heap } →
-        { σ'⊥ : Maybe Heap } →
+        { σ : State } →
+        { σ'⊥ : Maybe State } →
         B⟦ b ⟧ σ ≡ just true →
         [ stm1 , σ ]⇓ σ'⊥ →
     ----------------------------------------------------------
@@ -59,8 +59,8 @@ data [_,_]⇓_ : (s : Stm) → (σ : Heap) → (σ' : Maybe Heap) → Set where
     b-ite-ff :
         { b : Bexp } →
         { stm1 stm2 : Stm } →
-        { σ : Heap } →
-        { σ'⊥ : Maybe Heap } →
+        { σ : State } →
+        { σ'⊥ : Maybe State } →
         B⟦ b ⟧ σ ≡ just false →
         [ stm2 , σ ]⇓ σ'⊥ →
     ----------------------------------------------------------
@@ -69,7 +69,7 @@ data [_,_]⇓_ : (s : Stm) → (σ : Heap) → (σ' : Maybe Heap) → Set where
     b-ite-⊥ :
         { b : Bexp } →
         { stm1 stm2 : Stm } →
-        { σ : Heap } →
+        { σ : State } →
         B⟦ b ⟧ σ ≡ exn →
     ----------------------------------------------------------
         [ ite b stm1 stm2 , σ ]⇓ exn
@@ -77,8 +77,8 @@ data [_,_]⇓_ : (s : Stm) → (σ : Heap) → (σ' : Maybe Heap) → Set where
     b-whiledo-tt :
         { b : Bexp } →
         { stm : Stm } →
-        { σ σ'' : Heap } →
-        { σ'⊥ : Maybe Heap } →
+        { σ σ'' : State } →
+        { σ'⊥ : Maybe State } →
         B⟦ b ⟧ σ ≡ just true →
         [ stm , σ ]⇓ just σ'' →
         [ whiledo b stm , σ'' ]⇓ σ'⊥ →
@@ -88,7 +88,7 @@ data [_,_]⇓_ : (s : Stm) → (σ : Heap) → (σ' : Maybe Heap) → Set where
     b-whiledo-ff :
         { b : Bexp } →
         { stm : Stm } →
-        { σ : Heap } →
+        { σ : State } →
         B⟦ b ⟧ σ ≡ just false →
     ----------------------------------------------------------
         [ whiledo b stm , σ ]⇓ just σ
@@ -96,7 +96,7 @@ data [_,_]⇓_ : (s : Stm) → (σ : Heap) → (σ' : Maybe Heap) → Set where
     b-whiledo-⊥₁ :
         { b : Bexp } →
         { stm : Stm } →
-        { σ : Heap } →
+        { σ : State } →
         B⟦ b ⟧ σ ≡ exn →
     ----------------------------------------------------------
         [ whiledo b stm , σ ]⇓ exn
@@ -104,7 +104,7 @@ data [_,_]⇓_ : (s : Stm) → (σ : Heap) → (σ' : Maybe Heap) → Set where
     b-whiledo-⊥₂ :
         { b : Bexp } →
         { stm : Stm } →
-        { σ : Heap } →
+        { σ : State } →
         B⟦ b ⟧ σ ≡ just true →
         [ stm , σ ]⇓ exn →
     ----------------------------------------------------------

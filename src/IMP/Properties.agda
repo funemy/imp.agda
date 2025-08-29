@@ -14,7 +14,7 @@ open import IMP.Syntax
 -- In pen-and-paper proof, I suppose the order is more commonly flipped,
 -- as in you first apply the induction principle of derivation tree, then
 -- case-splitting on statements.
-[∙,∙]⇓∙-implies-[∙,∙]⟶*∙ : ∀ (stm : Stm) (σ σ' : Heap) → [ stm , σ ]⇓ just σ' → [ stm , σ ]⟶* σ'
+[∙,∙]⇓∙-implies-[∙,∙]⟶*∙ : ∀ (stm : Stm) (σ σ' : State) → [ stm , σ ]⇓ just σ' → [ stm , σ ]⟶* σ'
 [∙,∙]⇓∙-implies-[∙,∙]⟶*∙ (assign x aexp) σ σ' (b-assign x₁) = dseq-id (s-assign x₁)
 [∙,∙]⇓∙-implies-[∙,∙]⟶*∙ skip σ σ' b-skip = dseq-id s-skip
 [∙,∙]⇓∙-implies-[∙,∙]⟶*∙ (seq stm1 stm2) σ σ' (b-seq {σ'' = σ''} deriv1 deriv2) =
@@ -32,3 +32,10 @@ open import IMP.Syntax
     let sub-dseq/while = [∙,∙]⇓∙-implies-[∙,∙]⟶*∙ (whiledo pred stm) σ'' σ' deriv/while in
     dseq-cons (s-while-tt pred/tt) (dseq∘ sub-dseq/stm sub-dseq/while)
 [∙,∙]⇓∙-implies-[∙,∙]⟶*∙ (whiledo pred stm) σ σ' (b-whiledo-ff pred/ff) = dseq-cons (s-while-ff pred/ff) (dseq-id s-skip)
+
+-- For any small-step derivation sequence defined by [∙,∙]⟶*∙,
+-- there is a corresponding big-step derivation.
+[∙,∙]⟶*∙-implies-[∙,∙]⇓∙ : ∀ (stm : Stm) (σ σ' : State) →
+    [ stm , σ ]⟶* σ' →
+    [ stm , σ ]⇓ (just σ')
+[∙,∙]⟶*∙-implies-[∙,∙]⇓∙ stm σ σ' dseq = {!   !}

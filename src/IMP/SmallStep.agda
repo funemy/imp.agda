@@ -10,18 +10,18 @@ open import IMP.Syntax
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
 StepRes : Set
-StepRes = Heap ⊎ (Stm × Heap)
+StepRes = State ⊎ (Stm × State)
 
 -- small-step semantics
--- The small-step semantics can either step into a new heap (state) for statements
+-- The small-step semantics can either step into a new state for statements
 -- like assign or skip, or step into a pair of next statement and a new state.
 -- This is defined as the type `StepRes` above, additionally, we wrap it in `Maybe`
 -- to model exceptions due to state-lookup.
-data [_,_]⟶_ : (stm : Stm) → (σ : Heap) → (γ : Maybe StepRes) → Set where
+data [_,_]⟶_ : (stm : Stm) → (σ : State) → (γ : Maybe StepRes) → Set where
     s-assign :
         { x : SSymbol } →
         { aexp : Aexp } →
-        { s : Heap } →
+        { s : State } →
         { v : Value } →
         A⟦ aexp ⟧ s ≡ just v →
     -----------------------------------------------------------------
@@ -30,34 +30,34 @@ data [_,_]⟶_ : (stm : Stm) → (σ : Heap) → (γ : Maybe StepRes) → Set wh
     s-assign-⊥ :
         { x : SSymbol } →
         { aexp : Aexp } →
-        { s : Heap } →
+        { s : State } →
         { v : Value } →
         A⟦ aexp ⟧ s ≡ exn →
     -----------------------------------------------------------------
         [ assign x aexp , s ]⟶ exn
 
     s-skip :
-        { s : Heap } →
+        { s : State } →
     -----------------------------------------------------------------
         [ skip , s ]⟶ just (inj₁ s)
 
     s-seq-1 :
         { s1 s2 s1' : Stm } →
-        { s s' : Heap } →
+        { s s' : State } →
         [ s1 , s ]⟶ just (inj₂ (s1' , s' )) →
     -----------------------------------------------------------------
         [ seq s1 s2 , s ]⟶ just (inj₂ (seq s1' s2 , s'))
 
     s-seq-2 :
         { s1 s2 : Stm } →
-        { s s' : Heap } →
+        { s s' : State } →
         [ s1 , s ]⟶ just (inj₁ s') →
     -----------------------------------------------------------------
         [ seq s1 s2 , s ]⟶ just (inj₂ ( s2 , s' ))
 
     s-seq-⊥ :
         { s1 s2 : Stm } →
-        { s : Heap } →
+        { s : State } →
         [ s1 , s ]⟶ exn →
     -----------------------------------------------------------------
         [ seq s1 s2 , s ]⟶ exn
@@ -65,7 +65,7 @@ data [_,_]⟶_ : (stm : Stm) → (σ : Heap) → (γ : Maybe StepRes) → Set wh
     s-ite-tt :
         { b : Bexp } →
         { s1 s2 : Stm } →
-        { s : Heap } →
+        { s : State } →
         B⟦ b ⟧ s ≡ just true →
     -----------------------------------------------------------------
         [ ite b s1 s2 , s ]⟶ just (inj₂ (s1 , s))
@@ -73,7 +73,7 @@ data [_,_]⟶_ : (stm : Stm) → (σ : Heap) → (γ : Maybe StepRes) → Set wh
     s-ite-ff :
         { b : Bexp } →
         { s1 s2 : Stm } →
-        { s : Heap } →
+        { s : State } →
         B⟦ b ⟧ s ≡ just false →
     -----------------------------------------------------------------
         [ ite b s1 s2 , s ]⟶ just (inj₂ (s2 , s))
@@ -81,7 +81,7 @@ data [_,_]⟶_ : (stm : Stm) → (σ : Heap) → (γ : Maybe StepRes) → Set wh
     s-ite-⊥ :
         { b : Bexp } →
         { s1 s2 : Stm } →
-        { s : Heap } →
+        { s : State } →
         B⟦ b ⟧ s ≡ exn →
     -----------------------------------------------------------------
         [ ite b s1 s2 , s ]⟶ exn
@@ -89,7 +89,7 @@ data [_,_]⟶_ : (stm : Stm) → (σ : Heap) → (γ : Maybe StepRes) → Set wh
     s-while-tt :
         { b : Bexp } →
         { stm : Stm } →
-        { s : Heap } →
+        { s : State } →
         B⟦ b ⟧ s ≡ just true →
     ---------------------------------------------------------------------
         [ whiledo b stm , s ]⟶ just (inj₂ (seq stm (whiledo b stm) , s))
@@ -97,7 +97,7 @@ data [_,_]⟶_ : (stm : Stm) → (σ : Heap) → (γ : Maybe StepRes) → Set wh
     s-while-ff :
         { b : Bexp } →
         { stm : Stm } →
-        { s : Heap } →
+        { s : State } →
         B⟦ b ⟧ s ≡ just false →
     ---------------------------------------------------------------------
         [ whiledo b stm , s ]⟶ just (inj₂ (skip , s))
@@ -105,23 +105,26 @@ data [_,_]⟶_ : (stm : Stm) → (σ : Heap) → (γ : Maybe StepRes) → Set wh
     s-while-⊥ :
         { b : Bexp } →
         { stm : Stm } →
-        { s : Heap } →
+        { s : State } →
         B⟦ b ⟧ s ≡ exn →
     -----------------------------------------------------------------
         [ whiledo b stm , s ]⟶ exn
 
 -- derivation sequence (finite)
-data [_,_]⟶*_ : (stm : Stm) → (σ : Heap) → (σ' : Heap) → Set where
+-- Note that, by definition, this sequence cannot raise exceptions, because
+-- the sequence is constructed backwards from the end, which is a single-step
+-- into a well-formed state (instead of an exception).
+data [_,_]⟶*_ : (stm : Stm) → (σ : State) → (σ' : State) → Set where
     dseq-id :
         { stm : Stm } →
-        { σ σ' : Heap } →
+        { σ σ' : State } →
         [ stm , σ ]⟶ just (inj₁ σ') →
     -----------------------------------------------------------------
         [ stm , σ ]⟶* σ'
 
     dseq-cons :
         { stm stm' : Stm } →
-        { σ σ' σ'' : Heap } →
+        { σ σ' σ'' : State } →
         [ stm , σ ]⟶ just (inj₂ (stm' , σ'' )) →
         [ stm' , σ'' ]⟶* σ' →
     -----------------------------------------------------------------
@@ -131,8 +134,8 @@ data [_,_]⟶*_ : (stm : Stm) → (σ : Heap) → (σ' : Heap) → Set where
 infixr -20 _::⟶⟨_⟩_
 _::⟶⟨_⟩_ :
     { stm stm' : Stm } →
-    ( σ : Heap ) →
-    { σ'' σ' : Heap } →
+    ( σ : State ) →
+    { σ'' σ' : State } →
     ( step : [ stm , σ ]⟶ just (inj₂ (stm' , σ'' )) ) →
     ( rest : [ stm' , σ'' ]⟶* σ' ) →
     [ stm , σ ]⟶* σ'
@@ -140,8 +143,8 @@ _::⟶⟨_⟩_ :
 
 helper-dseq-id :
     { stm : Stm } →
-    ( σ : Heap ) →
-    ( σ' : Heap ) →
+    ( σ : State ) →
+    ( σ' : State ) →
     ( step : [ stm , σ ]⟶ just (inj₁ σ') ) →
     [ stm , σ ]⟶* σ'
 helper-dseq-id {stm} σ σ' step = dseq-id step
@@ -152,7 +155,7 @@ syntax helper-dseq-id σ σ' step = σ ::⟶⟨ step ⟩∎ σ'
 -- composing two derivation sequences
 dseq∘ :
     { stm1 stm2 : Stm } →
-    { σ σ' σ'' : Heap } →
+    { σ σ' σ'' : State } →
     (deriv1 : [ stm1 , σ ]⟶* σ') →
     (deriv2 : [ stm2 , σ' ]⟶* σ'') →
     [ stm1 ⨾ stm2 , σ ]⟶* σ''
@@ -162,7 +165,7 @@ dseq∘ (dseq-cons step deriv1) deriv2 =
     dseq-cons (s-seq-1 step) tail
 
 -- WIP: infinite derivation sequence
--- record [_,_]⟶_ (stm : Stm) (σᵢ : Heap) (σ : Heap) : Set where
+-- record [_,_]⟶_ (stm : Stm) (σᵢ : State) (σ : State) : Set where
 --     coinductive
 --     field
 --         trace :

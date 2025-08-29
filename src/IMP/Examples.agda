@@ -27,13 +27,13 @@ Z = sym "Z"
 `Z : Aexp
 `Z = var Z
 
-testHeap1 : Heap
-testHeap1 = σ₀ [ X := (+ 42) ]
+testState1 : State
+testState1 = σ₀ [ X := (+ 42) ]
 
 _ : σ₀ [ X ] ≡ exn
 _ = refl
 
-_ : testHeap1 [ X ] ≡ just (+ 42)
+_ : testState1 [ X ] ≡ just (+ 42)
 _ = refl
 
 _ : [ skip , σ₀ ]⟶* σ₀
@@ -52,7 +52,7 @@ prog1 =
         X ← (plus `X (N 1))
 
 -- the expected final program state when prog1 terminates
-σ-prog1 : Heap
+σ-prog1 : State
 σ-prog1 = σ₀ [ X := (+ 0) ] [ X := (+ 1) ] [ X := (+ 2) ]
 
 -- execution of prog1 using big-step semantics

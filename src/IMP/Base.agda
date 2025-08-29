@@ -47,24 +47,24 @@ vand : Maybe Bool → Maybe Bool → Maybe Bool
 vand (just b1) (just b2) = just (b1 ∧ b2)
 vand _ _ = exn
 
--- Heap is represented as a function from symbols to values
-Heap : Set
-Heap = SSymbol → Value⊥
+-- State is represented as a function from symbols to values
+State : Set
+State = SSymbol → Value⊥
 
--- heap update
-_[_:=_] : Heap → SSymbol → Num → Heap
+-- State update
+_[_:=_] : State → SSymbol → Num → State
 h [ s := v ] = λ x → if (s == x) then just v else h x
 
--- heap access
-_[_] : Heap → SSymbol → Value⊥
+-- State access
+_[_] : State → SSymbol → Value⊥
 h [ s ] = h s
 
--- an initial (i.e., empty) heap, where any access will leads to exceptions
-σ₀ : Heap
+-- an initial (i.e., empty) state, where any access will leads to exceptions
+σ₀ : State
 σ₀ = λ x → exn
 
 -- denotational semantics for Arithmetic expressions (Aexp)
-A⟦_⟧_ : Aexp → Heap → Value⊥
+A⟦_⟧_ : Aexp → State → Value⊥
 A⟦ num x ⟧ s = just x
 A⟦ var x ⟧ s = s x
 A⟦ plus a₁ a₂ ⟧ s = vplus (A⟦ a₁ ⟧ s) (A⟦ a₂ ⟧ s)
@@ -72,7 +72,7 @@ A⟦ mul a₁ a₂ ⟧ s = vmul (A⟦ a₁ ⟧ s) (A⟦ a₂ ⟧ s)
 A⟦ sub a₁ a₂ ⟧ s = vsub (A⟦ a₁ ⟧ s) (A⟦ a₂ ⟧ s)
 
 -- denotational semantics for Boolean expressions (Bexp)
-B⟦_⟧_ : Bexp → Heap → Bool⊥
+B⟦_⟧_ : Bexp → State → Bool⊥
 B⟦ tt ⟧ s = just true
 B⟦ ff ⟧ s = just false
 B⟦ eq a₁ a₂ ⟧ s = veq (A⟦ a₁ ⟧ s) (A⟦ a₂ ⟧ s)
