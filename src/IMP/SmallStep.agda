@@ -4,111 +4,111 @@ open import Agda.Builtin.Sigma using (_,_)
 open import Data.Bool using (true; false)
 open import Data.Maybe using (Maybe; just)
 open import Data.Product as P using (_×_)
-open import Data.Sum as S using (_⊎_; inj₁; inj₂)
+open import Data.Sum using (_⊎_; inj₁; inj₂)
 open import IMP.Base
 open import IMP.Syntax
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
-StepRes : Set
-StepRes = State ⊎ (Stm × State)
+Config : Set
+Config = State ⊎ (Stm × State)
 
 -- small-step semantics
 -- The small-step semantics can either step into a new state for statements
 -- like assign or skip, or step into a pair of next statement and a new state.
--- This is defined as the type `StepRes` above, additionally, we wrap it in `Maybe`
+-- This is defined as the type `Config` above, additionally, we wrap it in `Maybe`
 -- to model exceptions due to state-lookup.
-data [_,_]⟶_ : (stm : Stm) → (σ : State) → (γ : Maybe StepRes) → Set where
+data [_,_]⟶_ : (stm : Stm) → (σ : State) → (γ : Maybe Config) → Set where
     s-assign :
         { x : SSymbol } →
         { aexp : Aexp } →
-        { s : State } →
+        { σ : State } →
         { v : Value } →
-        A⟦ aexp ⟧ s ≡ just v →
+        A⟦ aexp ⟧ σ ≡ just v →
     -----------------------------------------------------------------
-        [ assign x aexp , s ]⟶ just (inj₁ (s [ x := v ]))
+        [ assign x aexp , σ ]⟶ just (inj₁ (σ [ x := v ]))
 
     s-assign-⊥ :
         { x : SSymbol } →
         { aexp : Aexp } →
-        { s : State } →
+        { σ : State } →
         { v : Value } →
-        A⟦ aexp ⟧ s ≡ exn →
+        A⟦ aexp ⟧ σ ≡ exn →
     -----------------------------------------------------------------
-        [ assign x aexp , s ]⟶ exn
+        [ assign x aexp , σ ]⟶ exn
 
     s-skip :
-        { s : State } →
+        { σ : State } →
     -----------------------------------------------------------------
-        [ skip , s ]⟶ just (inj₁ s)
+        [ skip , σ ]⟶ just (inj₁ σ)
 
     s-seq-1 :
-        { s1 s2 s1' : Stm } →
-        { s s' : State } →
-        [ s1 , s ]⟶ just (inj₂ (s1' , s' )) →
+        { stm1 stm2 stm1' : Stm } →
+        { σ σ' : State } →
+        [ stm1 , σ ]⟶ just (inj₂ (stm1' , σ' )) →
     -----------------------------------------------------------------
-        [ seq s1 s2 , s ]⟶ just (inj₂ (seq s1' s2 , s'))
+        [ seq stm1 stm2 , σ ]⟶ just (inj₂ (seq stm1' stm2 , σ'))
 
     s-seq-2 :
-        { s1 s2 : Stm } →
-        { s s' : State } →
-        [ s1 , s ]⟶ just (inj₁ s') →
+        { stm1 stm2 : Stm } →
+        { σ σ' : State } →
+        [ stm1 , σ ]⟶ just (inj₁ σ') →
     -----------------------------------------------------------------
-        [ seq s1 s2 , s ]⟶ just (inj₂ ( s2 , s' ))
+        [ seq stm1 stm2 , σ ]⟶ just (inj₂ ( stm2 , σ' ))
 
     s-seq-⊥ :
-        { s1 s2 : Stm } →
-        { s : State } →
-        [ s1 , s ]⟶ exn →
+        { stm1 stm2 : Stm } →
+        { σ : State } →
+        [ stm1 , σ ]⟶ exn →
     -----------------------------------------------------------------
-        [ seq s1 s2 , s ]⟶ exn
+        [ seq stm1 stm2 , σ ]⟶ exn
 
     s-ite-tt :
         { b : Bexp } →
-        { s1 s2 : Stm } →
-        { s : State } →
-        B⟦ b ⟧ s ≡ just true →
+        { stm1 stm2 : Stm } →
+        { σ : State } →
+        B⟦ b ⟧ σ ≡ just true →
     -----------------------------------------------------------------
-        [ ite b s1 s2 , s ]⟶ just (inj₂ (s1 , s))
+        [ ite b stm1 stm2 , σ ]⟶ just (inj₂ (stm1 , σ))
 
     s-ite-ff :
         { b : Bexp } →
-        { s1 s2 : Stm } →
-        { s : State } →
-        B⟦ b ⟧ s ≡ just false →
+        { stm1 stm2 : Stm } →
+        { σ : State } →
+        B⟦ b ⟧ σ ≡ just false →
     -----------------------------------------------------------------
-        [ ite b s1 s2 , s ]⟶ just (inj₂ (s2 , s))
+        [ ite b stm1 stm2 , σ ]⟶ just (inj₂ (stm2 , σ))
 
     s-ite-⊥ :
         { b : Bexp } →
-        { s1 s2 : Stm } →
-        { s : State } →
-        B⟦ b ⟧ s ≡ exn →
+        { stm1 stm2 : Stm } →
+        { σ : State } →
+        B⟦ b ⟧ σ ≡ exn →
     -----------------------------------------------------------------
-        [ ite b s1 s2 , s ]⟶ exn
+        [ ite b stm1 stm2 , σ ]⟶ exn
 
     s-while-tt :
         { b : Bexp } →
         { stm : Stm } →
-        { s : State } →
-        B⟦ b ⟧ s ≡ just true →
+        { σ : State } →
+        B⟦ b ⟧ σ ≡ just true →
     ---------------------------------------------------------------------
-        [ whiledo b stm , s ]⟶ just (inj₂ (seq stm (whiledo b stm) , s))
+        [ whiledo b stm , σ ]⟶ just (inj₂ (seq stm (whiledo b stm) , σ))
 
     s-while-ff :
         { b : Bexp } →
         { stm : Stm } →
-        { s : State } →
-        B⟦ b ⟧ s ≡ just false →
+        { σ : State } →
+        B⟦ b ⟧ σ ≡ just false →
     ---------------------------------------------------------------------
-        [ whiledo b stm , s ]⟶ just (inj₂ (skip , s))
+        [ whiledo b stm , σ ]⟶ just (inj₂ (skip , σ))
 
     s-while-⊥ :
         { b : Bexp } →
         { stm : Stm } →
-        { s : State } →
-        B⟦ b ⟧ s ≡ exn →
+        { σ : State } →
+        B⟦ b ⟧ σ ≡ exn →
     -----------------------------------------------------------------
-        [ whiledo b stm , s ]⟶ exn
+        [ whiledo b stm , σ ]⟶ exn
 
 -- derivation sequence (finite)
 -- Note that, by definition, this sequence cannot raise exceptions, because
@@ -141,16 +141,16 @@ _::⟶⟨_⟩_ :
     [ stm , σ ]⟶* σ'
 (_::⟶⟨_⟩_) {stm} σ {σ''} {σ'} step rest = dseq-cons step rest
 
-helper-dseq-id :
+dseq-id-syntax :
     { stm : Stm } →
     ( σ : State ) →
     ( σ' : State ) →
     ( step : [ stm , σ ]⟶ just (inj₁ σ') ) →
     [ stm , σ ]⟶* σ'
-helper-dseq-id {stm} σ σ' step = dseq-id step
+dseq-id-syntax {stm} σ σ' step = dseq-id step
 
-infix -19 helper-dseq-id
-syntax helper-dseq-id σ σ' step = σ ::⟶⟨ step ⟩∎ σ'
+infix -19 dseq-id-syntax
+syntax dseq-id-syntax σ σ' step = σ ::⟶⟨ step ⟩∎ σ'
 
 -- composing two derivation sequences
 dseq∘ :
