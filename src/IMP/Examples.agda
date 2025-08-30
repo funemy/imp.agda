@@ -8,7 +8,7 @@ open import IMP.BigStep
 open import IMP.SmallStep
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
--- define symbols and variables X, Y, Z to make it easier to construct examples
+-- Define symbols and variables X, Y, Z to make it easier to construct examples
 X : SSymbol
 X = sym "X"
 
@@ -44,18 +44,18 @@ _ = σ₀ ::⟶⟨ s-seq-2 s-skip ⟩
     σ₀ ::⟶⟨ s-skip ⟩∎
     σ₀
 
--- an example program
+-- An example program
 prog1 : Stm
 prog1 =
     X ← N 0 ⨾
     WHILE `X ≤? N 1 DO
         X ← (plus `X (N 1))
 
--- the expected final program state when prog1 terminates
+-- The expected final program state when prog1 terminates
 σ-prog1 : State
 σ-prog1 = σ₀ [ X := (+ 0) ] [ X := (+ 1) ] [ X := (+ 2) ]
 
--- execution of prog1 using big-step semantics
+-- Execution of prog1 using big-step semantics
 exec-prog1 : [ prog1 , σ₀ ]⇓ just σ-prog1
 exec-prog1 = b-seq
                 (b-assign refl)
@@ -67,7 +67,7 @@ exec-prog1 = b-seq
                         (b-assign refl)
                         (b-whiledo-ff refl)))
 
--- this is a completely non-sugared version
+-- Construct the derivation sequence of prog1 without using any sugar
 dseq-prog1 : [ prog1 , σ₀ ]⟶* σ-prog1
 dseq-prog1 = dseq-cons
                 (s-seq-2 (s-assign refl))
@@ -83,7 +83,7 @@ dseq-prog1 = dseq-cons
                                     (s-while-ff refl)
                                     (dseq-id s-skip))))))
 
--- describing the derivation sequence of prog1's small-step intepretation using the syntactic sugar defined above
+-- Construct the derivation sequence of prog1 using the syntactic sugar defined in `IMP.SmallStep`
 dseq-sugared-prog1 : [ prog1 , σ₀ ]⟶* σ-prog1
 dseq-sugared-prog1 =
     σ₀ ::⟶⟨ s-seq-2 (s-assign refl) ⟩
