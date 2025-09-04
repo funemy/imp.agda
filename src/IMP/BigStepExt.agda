@@ -1,6 +1,6 @@
 {-# OPTIONS --guardedness #-}
 
--- This module is defined similar to IMP.SmallStep, describing
+-- This module is defined similar to IMP.SmallStepExt, describing
 -- divergence in big-step semantics.
 module IMP.BigStepExt where
 
