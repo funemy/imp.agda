@@ -65,17 +65,17 @@ h [ s ] = h s
 
 -- denotational semantics for Arithmetic expressions (Aexp)
 A⟦_⟧_ : Aexp → State → Value⊥
-A⟦ num x ⟧ s = just x
-A⟦ var x ⟧ s = s x
-A⟦ plus a₁ a₂ ⟧ s = vplus (A⟦ a₁ ⟧ s) (A⟦ a₂ ⟧ s)
-A⟦ mul a₁ a₂ ⟧ s = vmul (A⟦ a₁ ⟧ s) (A⟦ a₂ ⟧ s)
-A⟦ sub a₁ a₂ ⟧ s = vsub (A⟦ a₁ ⟧ s) (A⟦ a₂ ⟧ s)
+A⟦ num x ⟧ σ = just x
+A⟦ var x ⟧ σ = σ x
+A⟦ plus a₁ a₂ ⟧ σ = vplus (A⟦ a₁ ⟧ σ) (A⟦ a₂ ⟧ σ)
+A⟦ mul a₁ a₂ ⟧ σ = vmul (A⟦ a₁ ⟧ σ) (A⟦ a₂ ⟧ σ)
+A⟦ sub a₁ a₂ ⟧ σ = vsub (A⟦ a₁ ⟧ σ) (A⟦ a₂ ⟧ σ)
 
 -- denotational semantics for Boolean expressions (Bexp)
 B⟦_⟧_ : Bexp → State → Bool⊥
-B⟦ tt ⟧ s = just true
-B⟦ ff ⟧ s = just false
-B⟦ eq a₁ a₂ ⟧ s = veq (A⟦ a₁ ⟧ s) (A⟦ a₂ ⟧ s)
-B⟦ leq a₁ a₂ ⟧ s = vleq (A⟦ a₁ ⟧ s) (A⟦ a₂ ⟧ s)
-B⟦ lneg b ⟧ s = M.map not (B⟦ b ⟧ s)
-B⟦ land b₁ b₂ ⟧ s = vand (B⟦ b₁ ⟧ s) (B⟦ b₂ ⟧ s)
+B⟦ tt ⟧ σ = just true
+B⟦ ff ⟧ σ = just false
+B⟦ eq a₁ a₂ ⟧ σ = veq (A⟦ a₁ ⟧ σ) (A⟦ a₂ ⟧ σ)
+B⟦ leq a₁ a₂ ⟧ σ = vleq (A⟦ a₁ ⟧ σ) (A⟦ a₂ ⟧ σ)
+B⟦ lneg b ⟧ σ = M.map not (B⟦ b ⟧ σ)
+B⟦ land b₁ b₂ ⟧ σ = vand (B⟦ b₁ ⟧ σ) (B⟦ b₂ ⟧ σ)
