@@ -8,29 +8,63 @@ open import Data.Bool using (true; false)
 open import Data.Empty using (⊥)
 open import Data.List using (List; []; _∷_)
 open import Data.Maybe using (Maybe; just)
-open import Data.Product.Base using (∃-syntax; _×_; _,_)
-open import Data.Sum using (_⊎_; inj₂)
+open import Data.Product.Base using (∃-syntax; _×_; _,_; Σ)
+open import Data.Sum using (_⊎_; inj₁; inj₂)
 open import IMP.Base
 open import IMP.Syntax
 open import IMP.BigStep
-open import Relation.Binary.PropositionalEquality using (_≡_)
+open import Relation.Binary.PropositionalEquality using (_≡_; _≢_)
+open import Relation.Nullary.Negation using (¬_)
+
+-- This is a refinement over `Stm` to characterize statements that can potentially diverge.
+data MayDiverge : State → Stm → Set where
+    may-div-seq1 :
+        { σ : State } →
+        { stm1 stm2 : Stm } →
+        MayDiverge σ (seq stm1 stm2)
+    may-div-seq2 :
+        { σ σ' : State } →
+        { stm1 stm2 : Stm } →
+        [ stm1 , σ ]⇓ just σ' →
+        MayDiverge σ (seq stm1 stm2)
+    may-div-ite-tt :
+        { σ : State } →
+        { p : Bexp } →
+        { stm1 stm2 : Stm } →
+        B⟦ p ⟧ σ ≡ just true →
+        MayDiverge σ (ite p stm1 stm2)
+    may-div-ite-ff :
+        { σ : State } →
+        { p : Bexp } →
+        { stm1 stm2 : Stm } →
+        B⟦ p ⟧ σ ≡ just false →
+        MayDiverge σ (ite p stm1 stm2)
+    may-div-while :
+        { σ : State } →
+        { p : Bexp } →
+        { stm : Stm } →
+        B⟦ p ⟧ σ ≡ just true →
+        MayDiverge σ (whiledo p stm)
+
+MayDivergeStm : State → Set
+MayDivergeStm σ = Σ Stm (MayDiverge σ)
 
 mutual
-    PremisesOf : Stm → State → Set
-    PremisesOf (assign x aexp) σ = ⊥
-    PremisesOf skip σ = ⊥
-    PremisesOf (seq stm1 stm2) σ =
-        [ stm1 , σ ]⇓∞
-        ⊎
-        ∃[ σ' ] [ stm1 , σ ]⇓ just σ' × [ stm2 ,  σ' ]⇓∞
-    PremisesOf (ite p stm1 stm2) σ =
-        B⟦ p ⟧ σ ≡ just true × [ stm1 , σ ]⇓∞
-        ⊎
-        B⟦ p ⟧ σ ≡ just false × [ stm2 , σ ]⇓∞
-    PremisesOf (whiledo p stm) σ =
-        B⟦ p ⟧ σ ≡ just true × [ stm ⨾ whiledo p stm , σ ]⇓∞
+    PremisesOf : {σ : State} → MayDivergeStm σ → Set
+    PremisesOf (seq stm1 stm2 , may-div-seq1 {σ}) = [ stm1 , σ ]⇓∞
+    PremisesOf (seq stm1 stm2 , may-div-seq2 {σ' = σ'} _) = [ stm2 , σ' ]⇓∞
+    PremisesOf (ite p stm1 stm2 , may-div-ite-tt {σ} _) = [ stm1 , σ ]⇓∞
+    PremisesOf (ite p stm1 stm2 , may-div-ite-ff {σ} _) = [ stm2 , σ ]⇓∞
+    PremisesOf (whiledo p stm , may-div-while {σ} _) = [ stm ⨾ whiledo p stm , σ ]⇓∞
 
     record [_,_]⇓∞ (stm : Stm) (σ : State) : Set where
         coinductive
         field
-            premises : PremisesOf stm σ
+            premises : { pre : MayDiverge σ stm } → PremisesOf (stm , pre)
+
+        eval∞ : (stm : Stm) → (σ : State) → [ stm , σ ]⇓∞
+        premises (eval∞ (seq stm1 stm2) σ) {may-div-seq1} = eval∞ stm1 σ
+        premises (eval∞ (seq stm1 stm2) σ) {may-div-seq2 _} = eval∞ stm2 _
+        premises (eval∞ (ite p stm1 stm2) σ) {may-div-ite-tt _} = eval∞ stm1 σ
+        premises (eval∞ (ite p stm1 stm2) σ) {may-div-ite-ff _} = eval∞ stm2 σ
+        premises (eval∞ (whiledo p stm) σ) {may-div-while x} = eval∞ (seq stm (whiledo p stm)) σ
