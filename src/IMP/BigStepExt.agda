@@ -50,21 +50,23 @@ MayDivergeStm : State → Set
 MayDivergeStm σ = Σ Stm (MayDiverge σ)
 
 mutual
-    PremisesOf : {σ : State} → MayDivergeStm σ → Set
-    PremisesOf (seq stm1 stm2 , may-div-seq1 {σ}) = [ stm1 , σ ]⇓∞
-    PremisesOf (seq stm1 stm2 , may-div-seq2 {σ' = σ'} _) = [ stm2 , σ' ]⇓∞
-    PremisesOf (ite p stm1 stm2 , may-div-ite-tt {σ} _) = [ stm1 , σ ]⇓∞
-    PremisesOf (ite p stm1 stm2 , may-div-ite-ff {σ} _) = [ stm2 , σ ]⇓∞
-    PremisesOf (whiledo p stm , may-div-while {σ} _) = [ stm ⨾ whiledo p stm , σ ]⇓∞
+    SubDerivOf : {σ : State} → MayDivergeStm σ → Set
+    SubDerivOf (seq stm1 stm2 , may-div-seq1 {σ}) = [ stm1 , σ ]⇓∞
+    SubDerivOf (seq stm1 stm2 , may-div-seq2 {σ' = σ'} _) = [ stm2 , σ' ]⇓∞
+    SubDerivOf (ite p stm1 stm2 , may-div-ite-tt {σ} _) = [ stm1 , σ ]⇓∞
+    SubDerivOf (ite p stm1 stm2 , may-div-ite-ff {σ} _) = [ stm2 , σ ]⇓∞
+    SubDerivOf (whiledo p stm , may-div-while {σ} _) = [ stm ⨾ whiledo p stm , σ ]⇓∞
 
     record [_,_]⇓∞ (stm : Stm) (σ : State) : Set where
         coinductive
         field
-            premises : { pre : MayDiverge σ stm } → PremisesOf (stm , pre)
+            subderiv : { pre : MayDiverge σ stm } → SubDerivOf (stm , pre)
 
-        eval∞ : (stm : Stm) → (σ : State) → [ stm , σ ]⇓∞
-        premises (eval∞ (seq stm1 stm2) σ) {may-div-seq1} = eval∞ stm1 σ
-        premises (eval∞ (seq stm1 stm2) σ) {may-div-seq2 _} = eval∞ stm2 _
-        premises (eval∞ (ite p stm1 stm2) σ) {may-div-ite-tt _} = eval∞ stm1 σ
-        premises (eval∞ (ite p stm1 stm2) σ) {may-div-ite-ff _} = eval∞ stm2 σ
-        premises (eval∞ (whiledo p stm) σ) {may-div-while x} = eval∞ (seq stm (whiledo p stm)) σ
+open [_,_]⇓∞ public
+
+eval∞ : (stm : Stm) → (σ : State) → [ stm , σ ]⇓∞
+subderiv (eval∞ (seq stm1 stm2) σ) {may-div-seq1} = eval∞ stm1 σ
+subderiv (eval∞ (seq stm1 stm2) σ) {may-div-seq2 _} = eval∞ stm2 _
+subderiv (eval∞ (ite p stm1 stm2) σ) {may-div-ite-tt _} = eval∞ stm1 σ
+subderiv (eval∞ (ite p stm1 stm2) σ) {may-div-ite-ff _} = eval∞ stm2 σ
+subderiv (eval∞ (whiledo p stm) σ) {may-div-while x} = eval∞ (seq stm (whiledo p stm)) σ
