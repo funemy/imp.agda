@@ -64,17 +64,6 @@ mutual
 
 open [_,_]⇑ public
 
-eval⇑ : (stm : Stm) → (σ : State) → [ stm , σ ]⇑
-eval⇑ (seq stm1 stm2) σ .subderiv maydiv-seq1 = eval⇑ stm1 σ
-eval⇑ (seq stm1 stm2) σ .subderiv (maydiv-seq2 _) = eval⇑ stm2 _
-eval⇑ (ite p stm1 stm2) σ .subderiv (maydiv-ite-tt _) = eval⇑ stm1 σ
-eval⇑ (ite p stm1 stm2) σ .subderiv (maydiv-ite-ff _) = eval⇑ stm2 σ
-eval⇑ (whiledo p stm) σ .subderiv (maydiv-while _) = eval⇑ (seq stm (whiledo p stm)) σ
-
--- As it shown by the following example, what's defined above is a "may diverge" judgement.
-_ : [ skip , σ₀ ]⇑
-_ = eval⇑ skip σ₀
-
 -- skip definitely won't diverge
 skip-no-div : ∀ {σ : State} → ¬ MayDiverge σ skip
 skip-no-div ()
