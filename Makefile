@@ -1,7 +1,7 @@
 # This Makefile is shamelessly copied from agda-categories
 .PHONY: test Everything.agda clean
 
-OTHEROPTS = --auto-inline -Werror
+OTHEROPTS = --auto-inline -Werror --guardedness
 
 RTSARGS = +RTS -M6G -A128M -RTS ${OTHEROPTS}
 
@@ -12,8 +12,7 @@ html: Everything.agda
 	agda ${RTSARGS} --html -i. Everything.agda
 
 Everything.agda:
-	echo "{-# OPTIONS --guardedness #-}" > Everything.agda && \
-	git ls-tree --full-tree -r --name-only HEAD | grep '^src/[^\.]*.agda' | sed -e 's|^src/[/]*|import |' -e 's|/|.|g' -e 's/.agda//' -e '/import Everything/d' | LC_COLLATE='C' sort >> Everything.agda
+	git ls-tree --full-tree -r --name-only HEAD | grep '^src/[^\.]*.agda' | sed -e 's|^src/[/]*|import |' -e 's|/|.|g' -e 's/.agda//' -e '/import Everything/d' | LC_COLLATE='C' sort > Everything.agda
 
 clean:
 	find . -name '*.agdai' -exec rm \{\} \;
