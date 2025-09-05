@@ -22,7 +22,22 @@ open import IMP.SmallStep
 record [_,_]⟶∞ (stm : Stm) (σ : State) : Set where
     coinductive
     field
-        { stm' } : Stm
-        { σ' } : State
-        hd : [ stm , σ ]⟶ just (inj₂ (stm' , σ'))
-        tl : [ stm' , σ' ]⟶∞
+        tl :
+            { stm' : Stm } →
+            { σ' : State } →
+            [ stm , σ ]⟶ just (inj₂ (stm' , σ')) →
+            [ stm' , σ' ]⟶∞
+
+open [_,_]⟶∞ public
+
+eval⟶∞ : (stm : Stm) → (σ : State) → [ stm , σ ]⟶∞
+eval⟶∞ (seq stm1 stm2) σ .tl (s-seq-1 {stm1' = stm1'} {σ' = σ'} step) =
+    eval⟶∞ (seq stm1' stm2) σ'
+eval⟶∞ (seq stm1 stm2) σ .tl (s-seq-2 step) = eval⟶∞ stm2 _
+eval⟶∞ (ite p stm1 stm2) σ .tl (s-ite-tt x) = eval⟶∞ stm1 σ
+eval⟶∞ (ite p stm1 stm2) σ .tl (s-ite-ff x) = eval⟶∞ stm2 σ
+eval⟶∞ (whiledo p stm) σ .tl (s-while-tt x) = eval⟶∞ (seq stm (whiledo p stm)) σ
+eval⟶∞ (whiledo p stm) σ .tl (s-while-ff x) = eval⟶∞ skip σ
+
+_ : [ skip , σ₀ ]⟶∞
+_ = eval⟶∞ skip σ₀
