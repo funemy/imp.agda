@@ -9,11 +9,14 @@
 module IMP.SmallStepExt where
 
 open import Agda.Builtin.Sigma using (_,_)
+open import Data.Empty using (⊥)
 open import Data.Maybe using (Maybe; just)
 open import Data.Sum using (inj₂)
 open import IMP.Base
 open import IMP.Syntax
 open import IMP.SmallStep
+open import Relation.Binary.PropositionalEquality using (_≡_; refl)
+open import Relation.Nullary.Negation using (¬_)
 
 -- This coinductive record represent **infinite** derivation sequences
 -- for small-step semantics.
@@ -22,22 +25,22 @@ open import IMP.SmallStep
 record [_,_]⟶∞ (stm : Stm) (σ : State) : Set where
     coinductive
     field
-        tl :
-            { stm' : Stm } →
-            { σ' : State } →
-            [ stm , σ ]⟶ just (inj₂ (stm' , σ')) →
-            [ stm' , σ' ]⟶∞
+        { stm' } : Stm
+        { σ' } : State
+        hd : [ stm , σ ]⟶ just (inj₂ (stm' , σ'))
+        tl : [ stm' , σ' ]⟶∞
 
 open [_,_]⟶∞ public
 
-eval⟶∞ : (stm : Stm) → (σ : State) → [ stm , σ ]⟶∞
-eval⟶∞ (seq stm1 stm2) σ .tl (s-seq-1 {stm1' = stm1'} {σ' = σ'} step) =
-    eval⟶∞ (seq stm1' stm2) σ'
-eval⟶∞ (seq stm1 stm2) σ .tl (s-seq-2 step) = eval⟶∞ stm2 _
-eval⟶∞ (ite p stm1 stm2) σ .tl (s-ite-tt x) = eval⟶∞ stm1 σ
-eval⟶∞ (ite p stm1 stm2) σ .tl (s-ite-ff x) = eval⟶∞ stm2 σ
-eval⟶∞ (whiledo p stm) σ .tl (s-while-tt x) = eval⟶∞ (seq stm (whiledo p stm)) σ
-eval⟶∞ (whiledo p stm) σ .tl (s-while-ff x) = eval⟶∞ skip σ
+skip-no-div : ∀ {σ : State} → ¬ [ skip , σ ]⟶∞
+skip-no-div infd with infd .hd
+... | ()
 
-_ : [ skip , σ₀ ]⟶∞
-_ = eval⟶∞ skip σ₀
+whiletrue-div : ∀ (σ : State) → [ (WHILE tt DO skip) , σ ]⟶∞
+whiletrue-div σ .stm' = skip ⨾ WHILE tt DO skip
+whiletrue-div σ .σ' = σ
+whiletrue-div σ .hd = s-while-tt refl
+whiletrue-div σ .tl .stm' = WHILE tt DO skip
+whiletrue-div σ .tl .σ' = σ
+whiletrue-div σ .tl .hd = s-seq-2 s-skip
+whiletrue-div σ .tl .tl = whiletrue-div σ
