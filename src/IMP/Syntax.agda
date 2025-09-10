@@ -36,11 +36,11 @@ data Bexp : Set where
     land : Bexp → Bexp → Bexp
 
 data Stm : Set where
-    assign : SSymbol → Aexp → Stm
+    assign : (x : SSymbol) → (aexp : Aexp) → Stm
     skip : Stm
-    seq : Stm → Stm → Stm
-    ite : Bexp → Stm → Stm → Stm
-    whiledo : Bexp → Stm → Stm
+    seq : (stm1 : Stm) → (stm2 : Stm) → Stm
+    ite : (p : Bexp) → (stm1 : Stm) → (stm2 : Stm) → Stm
+    whiledo : (p : Bexp) → Stm → Stm
 
 -- Below is some syntactic sugar for the language defined above
 N : ℕ → Aexp

@@ -3,7 +3,8 @@ module IMP.SmallStep where
 open import Agda.Builtin.Sigma using (_,_)
 open import Data.Bool using (true; false)
 open import Data.Maybe using (Maybe; just; nothing)
-open import Data.Product using (∃-syntax; _×_; _,_)
+open import Data.Nat using (ℕ; _+_; zero; suc)
+open import Data.Product using (∃-syntax; _×_; _,_; proj₁; proj₂)
 open import Data.Sum using (_⊎_; inj₁; inj₂)
 open import IMP.Base
 open import IMP.Syntax
@@ -165,6 +166,91 @@ dseq∘ (dseq-cons step deriv1) deriv2 =
     let tail = dseq∘ deriv1 deriv2 in
     dseq-cons (s-seq-1 step) tail
 
+-- the inverse of dseq∘
+dseq-decomp :
+    { stm1 stm2 : Stm } →
+    { σ₀ σₖ : State } →
+    [ stm1 ⨾ stm2 , σ₀ ]⟶* σₖ →
+    ∃[ σₙ ] [ stm1 , σ₀ ]⟶* σₙ × [ stm2 , σₙ ]⟶* σₖ
+dseq-decomp (dseq-cons (s-seq-1 step) dseq) =
+    let σₙ , fst , snd = dseq-decomp dseq in
+    σₙ , dseq-cons step fst , snd
+dseq-decomp (dseq-cons {σ'' = σₙ} (s-seq-2 step) dseq) = σₙ , dseq-id step , dseq
+
+-- Similar to dseq, but indexed by the number of steps (minus 1)
+infix 4 [_,_]⟶ⁿ_/_
+data [_,_]⟶ⁿ_/_ : (stm : Stm) → (σ : State) → (σ' : State) → ℕ → Set where
+    nseq-id :
+        { stm : Stm } →
+        { σ σ' : State } →
+        [ stm , σ ]⟶ just (inj₁ σ') →
+    -----------------------------------------------------------------
+        [ stm , σ ]⟶ⁿ σ' / 0
+
+    nseq-cons :
+        { stm stm' : Stm } →
+        { σ σ' σ'' : State } →
+        { n : ℕ } →
+        [ stm , σ ]⟶ just (inj₂ (stm' , σ'' )) →
+        [ stm' , σ'' ]⟶ⁿ σ' / n →
+    -----------------------------------------------------------------
+        [ stm , σ ]⟶ⁿ σ' / suc n
+
+-- Any dseq can be converted to a corresponding nseq, by making the step count explicit.
+[∙,∙]⟶*∙-implies-[∙,∙]⟶ⁿ∙ :
+    { stm : Stm } { σ₀ σₖ : State } →
+    [ stm , σ₀ ]⟶* σₖ →
+    ∃[ n ] [ stm , σ₀ ]⟶ⁿ σₖ / n
+[∙,∙]⟶*∙-implies-[∙,∙]⟶ⁿ∙ (dseq-id step) = 0 , nseq-id step
+[∙,∙]⟶*∙-implies-[∙,∙]⟶ⁿ∙ (dseq-cons step dseq) =
+    let n , nseq = [∙,∙]⟶*∙-implies-[∙,∙]⟶ⁿ∙ dseq in
+    suc n , nseq-cons step nseq
+
+-- This judgement defines the relation that a non-terminal config (i.e., Stm × State)
+-- is reachable in a derivation sequence.
+data Reachable : (Stm × State) → { stm : Stm } { σ₀ σₙ : State } { n : ℕ } → [ stm , σ₀ ]⟶ⁿ σₙ / n → Set where
+    r-here :
+        { stm : Stm } →
+        { σ₀ σₙ : State } →
+        { n : ℕ } →
+        (nseq : [ stm , σ₀ ]⟶ⁿ σₙ / n) →
+    -----------------------------------------------------------------
+        Reachable (stm , σ₀) nseq
+
+    r-there :
+        { stm stm₀ stm₁ : Stm } →
+        { σ σ₀ σ₁ σₖ : State } →
+        { n : ℕ } →
+        (hd : [ stm₀ , σ₀ ]⟶ just (inj₂ (stm₁ , σ₁))) →
+        (tl : [ stm₁ , σ₁ ]⟶ⁿ σₖ / n) →
+        Reachable (stm , σ) tl →
+    -----------------------------------------------------------------
+        Reachable (stm , σ) (nseq-cons hd tl)
+
+mutual
+    s⨾while⇓-implies-∃σ:p/ff :
+        { p : Bexp} { stm1 stm2 : Stm } { σ σ' : State } { n : ℕ } →
+        (nseq : [ stm1 ⨾ WHILE p DO stm2 , σ ]⟶ⁿ σ' / n) →
+        ∃[ σₖ ] (B⟦ p ⟧ σₖ ≡ just false) × Reachable ((WHILE p DO stm2) , σₖ) nseq
+    s⨾while⇓-implies-∃σ:p/ff (nseq-cons (s-seq-1 step) nseq) =
+        let σₖ , p/ff , r = s⨾while⇓-implies-∃σ:p/ff nseq in
+        σₖ , p/ff , r-there (s-seq-1 step) nseq r
+    s⨾while⇓-implies-∃σ:p/ff (nseq-cons (s-seq-2 step) nseq) =
+        let σₖ , p/ff , r = while⇓-implies-∃σ:p/ff nseq in
+        σₖ , p/ff , r-there (s-seq-2 step) nseq r
+
+    -- Lemma:
+    while⇓-implies-∃σ:p/ff :
+        { p : Bexp} { stm : Stm } { σ σ' : State } { n : ℕ } →
+        (nseq : [ WHILE p DO stm , σ ]⟶ⁿ σ' / n) →
+        ∃[ σₖ ] (B⟦ p ⟧ σₖ ≡ just false) × Reachable ((WHILE p DO stm) , σₖ) nseq
+    while⇓-implies-∃σ:p/ff {n = zero} (nseq-id ())
+    while⇓-implies-∃σ:p/ff {n = suc n} (nseq-cons {stm' = skip} (s-while-ff p/ff) (nseq-id step/skip)) =
+        _ , p/ff , r-here (nseq-cons (s-while-ff p/ff) (nseq-id step/skip))
+    while⇓-implies-∃σ:p/ff {n = suc n} (nseq-cons {stm' = seq stm1 stm2} (s-while-tt x) nseq) =
+        let σₖ , p/ff , r = s⨾while⇓-implies-∃σ:p/ff nseq in
+        σₖ , p/ff , r-there (s-while-tt x) nseq r
+
 -- A potentially exceptional derivation sequence (finite), or eseq
 -- Comparing to the derivation sequence defined above (i.e., [∙,∙]⟶*∙),
 -- the only difference is a new rule `eseq-id-⊥`.
@@ -217,118 +303,139 @@ s1⊥-implies-s1⨾s2⊥ stm1 stm2 σ (eseq-cons {stm' = stm'} {σ'' = σ''} ste
     let eseq' = s1⊥-implies-s1⨾s2⊥ stm' stm2 σ'' eseq in
     eseq-cons (s-seq-1 step) eseq'
 
--- Lemma:
+-- Lemma (eseq to dseq conversion):
+-- For all non-exceptional eseq, it can be converted to dseq
+-- Trivial proof, since eseq and dseq has the exact same structure when there's no exception.
+to-dseq :
+    ∀ {stm : Stm} {σ σ' : State} →
+    [ stm , σ ]~>* just σ' →
+    [ stm , σ ]⟶* σ'
+to-dseq {assign x aexp} (eseq-id step) = dseq-id step
+to-dseq {skip} (eseq-id step) = dseq-id step
+to-dseq {_} (eseq-cons hd tl) = dseq-cons hd (to-dseq tl)
+
+eseq∘ :
+    { stm1 stm2 : Stm } →
+    { σ σ' : State } →
+    { σ'' : Maybe State } →
+    [ stm1 , σ ]~>* just σ' →
+    [ stm2 , σ' ]~>* σ'' →
+    [ stm1 ⨾ stm2 , σ ]~>* σ''
+eseq∘ (eseq-id step) eseq2 = eseq-cons (s-seq-2 step) eseq2
+eseq∘ (eseq-cons step eseq1) eseq2 = eseq-cons (s-seq-1 step) (eseq∘ eseq1 eseq2)
+
+-- Lemma (local determinism):
 -- We show that for every statement, there's only one possible result for small-step evaluation.
 -- The proof looks long, but it's actually trivial.
 -- The general idea is to simultaneously do induction on both small-step derivations and unify all
 -- the equalities, the proof will then resolve to either `refl` or absurdity.
 [∙,∙]⟶∙-unique :
-    ∀ (stm : Stm) {σ : State} {c1 c2 : Maybe Config}→
+    ∀ {stm : Stm} {σ : State} {c1 c2 : Maybe Config}→
     [ stm , σ ]⟶ c1 →
     [ stm , σ ]⟶ c2 →
     c1 ≡ c2
-[∙,∙]⟶∙-unique (assign x aexp) (s-assign A⟦aexp⟧σ1) (s-assign A⟦aexp⟧σ2)
+[∙,∙]⟶∙-unique {assign x aexp} (s-assign A⟦aexp⟧σ1) (s-assign A⟦aexp⟧σ2)
     rewrite A⟦aexp⟧σ1
     rewrite A⟦aexp⟧σ2
     = refl
-[∙,∙]⟶∙-unique (assign x aexp) (s-assign A⟦aexp⟧σ) (s-assign-⊥ A⟦aexp⟧σ⊥)
+[∙,∙]⟶∙-unique {assign x aexp} (s-assign A⟦aexp⟧σ) (s-assign-⊥ A⟦aexp⟧σ⊥)
     -- A⟦aexp⟧σ shows that aexp evaluates to some value v (as equality),
     -- hence A⟦aexp⟧σ⊥ will resolve to `just _ ≡ nothing` after the rewrite.
     rewrite A⟦aexp⟧σ
     -- By pattern matching on this equality, it's evident that this is absurdity.
     with A⟦aexp⟧σ⊥
 ... | ()
-[∙,∙]⟶∙-unique (assign x aexp) (s-assign-⊥ A⟦aexp⟧σ⊥) (s-assign A⟦aexp⟧σ)
+[∙,∙]⟶∙-unique {assign x aexp} (s-assign-⊥ A⟦aexp⟧σ⊥) (s-assign A⟦aexp⟧σ)
     -- This is the symmetrical case of what's above
     rewrite A⟦aexp⟧σ
     with A⟦aexp⟧σ⊥
 ... | ()
-[∙,∙]⟶∙-unique (assign x aexp) (s-assign-⊥ A⟦aexp⟧σ⊥1) (s-assign-⊥ A⟦aexp⟧σ⊥2) = refl
-[∙,∙]⟶∙-unique skip s-skip s-skip = refl
-[∙,∙]⟶∙-unique (seq stm1 stm2) (s-seq-1 step1) (s-seq-1 step2)
-    with [∙,∙]⟶∙-unique stm1 step1 step2
+[∙,∙]⟶∙-unique {assign x aexp} (s-assign-⊥ A⟦aexp⟧σ⊥1) (s-assign-⊥ A⟦aexp⟧σ⊥2) = refl
+[∙,∙]⟶∙-unique {skip} s-skip s-skip = refl
+[∙,∙]⟶∙-unique {seq stm1 stm2} (s-seq-1 step1) (s-seq-1 step2)
+    with [∙,∙]⟶∙-unique step1 step2
 ... | refl = refl
-[∙,∙]⟶∙-unique (seq stm1 stm2) (s-seq-1 step1) (s-seq-2 step2)
-    with [∙,∙]⟶∙-unique stm1 step1 step2
+[∙,∙]⟶∙-unique {seq stm1 stm2} (s-seq-1 step1) (s-seq-2 step2)
+    with [∙,∙]⟶∙-unique step1 step2
 ... | ()
-[∙,∙]⟶∙-unique (seq stm1 stm2) (s-seq-1 step1) (s-seq-⊥ step2)
-    with [∙,∙]⟶∙-unique stm1 step1 step2
+[∙,∙]⟶∙-unique {seq stm1 stm2} (s-seq-1 step1) (s-seq-⊥ step2)
+    with [∙,∙]⟶∙-unique step1 step2
 ... | ()
-[∙,∙]⟶∙-unique (seq stm1 stm2) (s-seq-2 step1) (s-seq-1 step2)
-    with [∙,∙]⟶∙-unique stm1 step1 step2
+[∙,∙]⟶∙-unique {seq stm1 stm2} (s-seq-2 step1) (s-seq-1 step2)
+    with [∙,∙]⟶∙-unique step1 step2
 ... | ()
-[∙,∙]⟶∙-unique (seq stm1 stm2) (s-seq-2 step1) (s-seq-2 step2)
-    with [∙,∙]⟶∙-unique stm1 step1 step2
+[∙,∙]⟶∙-unique {seq stm1 stm2} (s-seq-2 step1) (s-seq-2 step2)
+    with [∙,∙]⟶∙-unique step1 step2
 ... | refl = refl
-[∙,∙]⟶∙-unique (seq stm1 stm2) (s-seq-2 step1) (s-seq-⊥ step2)
-    with [∙,∙]⟶∙-unique stm1 step1 step2
+[∙,∙]⟶∙-unique {seq stm1 stm2} (s-seq-2 step1) (s-seq-⊥ step2)
+    with [∙,∙]⟶∙-unique step1 step2
 ... | ()
-[∙,∙]⟶∙-unique (seq stm1 stm2) (s-seq-⊥ step1) (s-seq-1 step2)
-    with [∙,∙]⟶∙-unique stm1 step1 step2
+[∙,∙]⟶∙-unique {seq stm1 stm2} (s-seq-⊥ step1) (s-seq-1 step2)
+    with [∙,∙]⟶∙-unique step1 step2
 ... | ()
-[∙,∙]⟶∙-unique (seq stm1 stm2) (s-seq-⊥ step1) (s-seq-2 step2)
-    with [∙,∙]⟶∙-unique stm1 step1 step2
+[∙,∙]⟶∙-unique {seq stm1 stm2} (s-seq-⊥ step1) (s-seq-2 step2)
+    with [∙,∙]⟶∙-unique step1 step2
 ... | ()
-[∙,∙]⟶∙-unique (seq stm1 stm2) (s-seq-⊥ step1) (s-seq-⊥ step2)
-    with [∙,∙]⟶∙-unique stm1 step1 step2
+[∙,∙]⟶∙-unique {seq stm1 stm2} (s-seq-⊥ step1) (s-seq-⊥ step2)
+    with [∙,∙]⟶∙-unique step1 step2
 ... | refl = refl
-[∙,∙]⟶∙-unique (ite p stm1 stm2) (s-ite-tt p/tt1) (s-ite-tt p/tt2) = refl
-[∙,∙]⟶∙-unique (ite p stm1 stm2) (s-ite-tt p/tt) (s-ite-ff p/ff)
+[∙,∙]⟶∙-unique {ite p stm1 stm2} (s-ite-tt p/tt1) (s-ite-tt p/tt2) = refl
+[∙,∙]⟶∙-unique {ite p stm1 stm2} (s-ite-tt p/tt) (s-ite-ff p/ff)
     rewrite p/tt
     with p/ff
 ... | ()
-[∙,∙]⟶∙-unique (ite p stm1 stm2) (s-ite-tt p/tt) (s-ite-⊥ p/⊥)
+[∙,∙]⟶∙-unique {ite p stm1 stm2} (s-ite-tt p/tt) (s-ite-⊥ p/⊥)
     rewrite p/tt
     with p/⊥
 ... | ()
-[∙,∙]⟶∙-unique (ite p stm1 stm2) (s-ite-ff p/ff) (s-ite-tt p/tt)
+[∙,∙]⟶∙-unique {ite p stm1 stm2} (s-ite-ff p/ff) (s-ite-tt p/tt)
     rewrite p/tt
     with p/ff
 ... | ()
-[∙,∙]⟶∙-unique (ite p stm1 stm2) (s-ite-ff p/ff1) (s-ite-ff p/ff2)
+[∙,∙]⟶∙-unique {ite p stm1 stm2} (s-ite-ff p/ff1) (s-ite-ff p/ff2)
     rewrite p/ff1
     with p/ff2
 ... | refl = refl
-[∙,∙]⟶∙-unique (ite p stm1 stm2) (s-ite-ff p/ff) (s-ite-⊥ p/⊥)
+[∙,∙]⟶∙-unique {ite p stm1 stm2} (s-ite-ff p/ff) (s-ite-⊥ p/⊥)
     rewrite p/ff
     with p/⊥
 ... | ()
-[∙,∙]⟶∙-unique (ite p stm1 stm2) (s-ite-⊥ p/⊥) (s-ite-tt p/tt)
+[∙,∙]⟶∙-unique {ite p stm1 stm2} (s-ite-⊥ p/⊥) (s-ite-tt p/tt)
     rewrite p/⊥
     with p/tt
 ... | ()
-[∙,∙]⟶∙-unique (ite p stm1 stm2) (s-ite-⊥ p/⊥) (s-ite-ff p/ff)
+[∙,∙]⟶∙-unique {ite p stm1 stm2} (s-ite-⊥ p/⊥) (s-ite-ff p/ff)
     rewrite p/⊥
     with p/ff
 ... | ()
-[∙,∙]⟶∙-unique (ite p stm1 stm2) (s-ite-⊥ p/⊥1) (s-ite-⊥ p/⊥2) rewrite p/⊥1 = refl
-[∙,∙]⟶∙-unique (whiledo p stm) (s-while-tt p/tt1) (s-while-tt p/tt2) rewrite p/tt1 = refl
-[∙,∙]⟶∙-unique (whiledo p stm) (s-while-tt p/tt) (s-while-ff p/ff)
+[∙,∙]⟶∙-unique {ite p stm1 stm2} (s-ite-⊥ p/⊥1) (s-ite-⊥ p/⊥2) rewrite p/⊥1 = refl
+[∙,∙]⟶∙-unique {whiledo p stm} (s-while-tt p/tt1) (s-while-tt p/tt2) rewrite p/tt1 = refl
+[∙,∙]⟶∙-unique {whiledo p stm} (s-while-tt p/tt) (s-while-ff p/ff)
     rewrite p/tt
     with p/ff
 ... | ()
-[∙,∙]⟶∙-unique (whiledo p stm) (s-while-tt p/tt) (s-while-⊥ p/⊥)
+[∙,∙]⟶∙-unique {whiledo p stm} (s-while-tt p/tt) (s-while-⊥ p/⊥)
     rewrite p/tt
     with p/⊥
 ... | ()
-[∙,∙]⟶∙-unique (whiledo p stm) (s-while-ff p/ff) (s-while-tt p/tt)
+[∙,∙]⟶∙-unique {whiledo p stm} (s-while-ff p/ff) (s-while-tt p/tt)
     rewrite p/ff
     with p/tt
 ... | ()
-[∙,∙]⟶∙-unique (whiledo p stm) (s-while-ff p/ff1) (s-while-ff p/ff2) rewrite p/ff1 = refl
-[∙,∙]⟶∙-unique (whiledo p stm) (s-while-ff p/ff) (s-while-⊥ p/⊥)
+[∙,∙]⟶∙-unique {whiledo p stm} (s-while-ff p/ff1) (s-while-ff p/ff2) rewrite p/ff1 = refl
+[∙,∙]⟶∙-unique {whiledo p stm} (s-while-ff p/ff) (s-while-⊥ p/⊥)
     rewrite p/ff
     with p/⊥
 ... | ()
-[∙,∙]⟶∙-unique (whiledo p stm) (s-while-⊥ p/⊥) (s-while-tt p/tt)
+[∙,∙]⟶∙-unique {whiledo p stm} (s-while-⊥ p/⊥) (s-while-tt p/tt)
     rewrite p/⊥
     with p/tt
 ... | ()
-[∙,∙]⟶∙-unique (whiledo p stm) (s-while-⊥ p/⊥) (s-while-ff p/ff)
+[∙,∙]⟶∙-unique {whiledo p stm} (s-while-⊥ p/⊥) (s-while-ff p/ff)
     rewrite p/⊥
     with p/ff
 ... | ()
-[∙,∙]⟶∙-unique (whiledo p stm) (s-while-⊥ p/⊥1) (s-while-⊥ p/⊥2) rewrite p/⊥1 = refl
+[∙,∙]⟶∙-unique {whiledo p stm} (s-while-⊥ p/⊥1) (s-while-⊥ p/⊥2) rewrite p/⊥1 = refl
 
 -- Lemma:
 -- We show that our previous definition of derivation sequences
@@ -337,15 +444,15 @@ s1⊥-implies-s1⨾s2⊥ stm1 stm2 σ (eseq-cons {stm' = stm'} {σ'' = σ''} ste
 -- This lemma can be seen as a special case of showing that the evaluation defined is deterministic.
 dseq-no-exn :
     ∀ (stm : Stm) {σ σ' : State} →
-    [ stm , σ ]⟶* σ' → ¬([ stm , σ ]~>* exn)
+    [ stm , σ ]⟶* σ' → ¬ [ stm , σ ]~>* exn
 dseq-no-exn stm (dseq-id step) (eseq-id-⊥ step⊥)
-    with [∙,∙]⟶∙-unique stm step step⊥
+    with [∙,∙]⟶∙-unique step step⊥
 ... | ()
 dseq-no-exn stm (dseq-cons step dseq) (eseq-id-⊥ step⊥)
-    with [∙,∙]⟶∙-unique stm step step⊥
+    with [∙,∙]⟶∙-unique step step⊥
 ... | ()
 dseq-no-exn stm (dseq-id step1) (eseq-cons step2 eseq⊥)
-    with [∙,∙]⟶∙-unique stm step1 step2
+    with [∙,∙]⟶∙-unique step1 step2
 ... | ()
 -- We proof this case by:
 -- 1. `step1` and `step2` are two single-steps from the same statement, hence they must step into the same
@@ -353,12 +460,6 @@ dseq-no-exn stm (dseq-id step1) (eseq-cons step2 eseq⊥)
 -- 2. As a result, the tails of both sequences will start at the same statement and state, hence by
 --    inductive hypothesis, the proof goes through.
 dseq-no-exn stm (dseq-cons step1 dseq) (eseq-cons step2 eseq⊥)
-    with [∙,∙]⟶∙-unique stm step1 step2
+    with [∙,∙]⟶∙-unique step1 step2
 -- the omitted argument is the statement produced by the first step
 ... | refl = dseq-no-exn _ dseq eseq⊥
-
--- WIP: infinite derivation sequence
--- record [_,_]⟶_ (stm : Stm) (σᵢ : State) (σ : State) : Set where
---     coinductive
---     field
---         trace :
