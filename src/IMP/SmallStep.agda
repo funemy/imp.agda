@@ -178,6 +178,8 @@ dseq-decomp (dseq-cons (s-seq-1 step) dseq) =
 dseq-decomp (dseq-cons {σ'' = σₙ} (s-seq-2 step) dseq) = σₙ , dseq-id step , dseq
 
 -- Similar to dseq, but indexed by the number of steps (minus 1)
+-- NOTE: this definition is not used at the moment, and nseq is clearly
+--  isomorphic to dseq, so not very useful at the moment
 infix 4 [_,_]⟶ⁿ_/_
 data [_,_]⟶ⁿ_/_ : (stm : Stm) → (σ : State) → (σ' : State) → ℕ → Set where
     nseq-id :
@@ -196,6 +198,7 @@ data [_,_]⟶ⁿ_/_ : (stm : Stm) → (σ : State) → (σ' : State) → ℕ →
     -----------------------------------------------------------------
         [ stm , σ ]⟶ⁿ σ' / suc n
 
+-- Lemma (dseq implies nseq):
 -- Any dseq can be converted to a corresponding nseq, by making the step count explicit.
 [∙,∙]⟶*∙-implies-[∙,∙]⟶ⁿ∙ :
     { stm : Stm } { σ₀ σₖ : State } →
@@ -208,48 +211,53 @@ data [_,_]⟶ⁿ_/_ : (stm : Stm) → (σ : State) → (σ' : State) → ℕ →
 
 -- This judgement defines the relation that a non-terminal config (i.e., Stm × State)
 -- is reachable in a derivation sequence.
-data Reachable : (Stm × State) → { stm : Stm } { σ₀ σₙ : State } { n : ℕ } → [ stm , σ₀ ]⟶ⁿ σₙ / n → Set where
+data Reachable : (Stm × State) → { stm : Stm } { σ₀ σₙ : State } → [ stm , σ₀ ]⟶* σₙ → Set where
     r-here :
         { stm : Stm } →
         { σ₀ σₙ : State } →
-        { n : ℕ } →
-        (nseq : [ stm , σ₀ ]⟶ⁿ σₙ / n) →
+        (dseq : [ stm , σ₀ ]⟶* σₙ) →
     -----------------------------------------------------------------
-        Reachable (stm , σ₀) nseq
+        Reachable (stm , σ₀) dseq
 
+    -- The intuition is that if we already shown a config `(stm , σ)` is reachable
+    -- on a derivation sequence `tl`, we can always prepend a single step `hd` to
+    -- the head of the sequence (the result of `hd` must match the start of `tl`),
+    -- and the config will still be reachable on this new sequence.
     r-there :
         { stm stm₀ stm₁ : Stm } →
         { σ σ₀ σ₁ σₖ : State } →
-        { n : ℕ } →
         (hd : [ stm₀ , σ₀ ]⟶ just (inj₂ (stm₁ , σ₁))) →
-        (tl : [ stm₁ , σ₁ ]⟶ⁿ σₖ / n) →
+        (tl : [ stm₁ , σ₁ ]⟶* σₖ) →
         Reachable (stm , σ) tl →
     -----------------------------------------------------------------
-        Reachable (stm , σ) (nseq-cons hd tl)
+        Reachable (stm , σ) (dseq-cons hd tl)
 
 mutual
+    -- Lemma for the theorem below
     s⨾while⇓-implies-∃σ:p/ff :
-        { p : Bexp} { stm1 stm2 : Stm } { σ σ' : State } { n : ℕ } →
-        (nseq : [ stm1 ⨾ WHILE p DO stm2 , σ ]⟶ⁿ σ' / n) →
-        ∃[ σₖ ] (B⟦ p ⟧ σₖ ≡ just false) × Reachable ((WHILE p DO stm2) , σₖ) nseq
-    s⨾while⇓-implies-∃σ:p/ff (nseq-cons (s-seq-1 step) nseq) =
+        { p : Bexp} { stm1 stm2 : Stm } { σ σ' : State } →
+        (dseq : [ stm1 ⨾ WHILE p DO stm2 , σ ]⟶* σ') →
+        ∃[ σₖ ] (B⟦ p ⟧ σₖ ≡ just false) × Reachable ((WHILE p DO stm2) , σₖ) dseq
+    s⨾while⇓-implies-∃σ:p/ff (dseq-cons (s-seq-1 step) nseq) =
         let σₖ , p/ff , r = s⨾while⇓-implies-∃σ:p/ff nseq in
         σₖ , p/ff , r-there (s-seq-1 step) nseq r
-    s⨾while⇓-implies-∃σ:p/ff (nseq-cons (s-seq-2 step) nseq) =
+    s⨾while⇓-implies-∃σ:p/ff (dseq-cons (s-seq-2 step) nseq) =
         let σₖ , p/ff , r = while⇓-implies-∃σ:p/ff nseq in
         σₖ , p/ff , r-there (s-seq-2 step) nseq r
 
-    -- Lemma:
+    -- Theorem (termination of while loops):
+    -- For a while loop that is known to terminate, its derivation sequence must contain
+    -- a step where the transition involves evaluating the predicate (of the while loop)
+    -- to false.
     while⇓-implies-∃σ:p/ff :
-        { p : Bexp} { stm : Stm } { σ σ' : State } { n : ℕ } →
-        (nseq : [ WHILE p DO stm , σ ]⟶ⁿ σ' / n) →
-        ∃[ σₖ ] (B⟦ p ⟧ σₖ ≡ just false) × Reachable ((WHILE p DO stm) , σₖ) nseq
-    while⇓-implies-∃σ:p/ff {n = zero} (nseq-id ())
-    while⇓-implies-∃σ:p/ff {n = suc n} (nseq-cons {stm' = skip} (s-while-ff p/ff) (nseq-id step/skip)) =
-        _ , p/ff , r-here (nseq-cons (s-while-ff p/ff) (nseq-id step/skip))
-    while⇓-implies-∃σ:p/ff {n = suc n} (nseq-cons {stm' = seq stm1 stm2} (s-while-tt x) nseq) =
+        { p : Bexp} { stm : Stm } { σ σ' : State } →
+        (dseq : [ WHILE p DO stm , σ ]⟶* σ') →
+        ∃[ σₖ ] (B⟦ p ⟧ σₖ ≡ just false) × Reachable ((WHILE p DO stm) , σₖ) dseq
+    while⇓-implies-∃σ:p/ff (dseq-cons (s-while-tt x) nseq) =
         let σₖ , p/ff , r = s⨾while⇓-implies-∃σ:p/ff nseq in
         σₖ , p/ff , r-there (s-while-tt x) nseq r
+    while⇓-implies-∃σ:p/ff (dseq-cons (s-while-ff x) nseq) =
+        _ , x , r-here (dseq-cons (s-while-ff x) nseq)
 
 -- A potentially exceptional derivation sequence (finite), or eseq
 -- Comparing to the derivation sequence defined above (i.e., [∙,∙]⟶*∙),
