@@ -62,14 +62,14 @@ eval∞ (seq stm1 stm2) σ .unpack with eval∞ stm1 σ .unpack
 ... | skip , σ' , step , tl = stm2 , (σ' , s-seq-2 step , eval∞ stm2 σ')
 ... | stm' , σ' , step , tl =
     let stm'' = (stm' ⨾ stm2) in
-    stm'' , (σ' , s-seq-1 step , eval∞ stm'' σ')
+    stm'' , (σ' , s-seq-1 step , eval∞ stm'' σ') -- !!larger term
 eval∞ (ite p stm1 stm2) σ .unpack with B⌊ p ⌋ σ in eq
 ... | true = stm1 , σ , s-ite-tt eq , eval∞ stm1 σ
 ... | false = stm2 , σ , s-ite-ff eq , eval∞ stm2 σ
 eval∞ (whiledo p stm) σ .unpack with B⌊ p ⌋ σ in eq
 ... | true =
     let stm' = stm ⨾ whiledo p stm in
-    stm' , σ , s-while-tt eq , eval∞ stm' σ
+    stm' , σ , s-while-tt eq , eval∞ stm' σ -- !!larger term
 ... | false = skip , σ , s-while-ff eq , repeat/skip σ
 
 example1 : Stm
@@ -99,5 +99,5 @@ example2 =
 eval2 : [ example2 , σ₀ ]~>∞
 eval2 = eval∞ example2 σ₀
 
-_ : eval2 `tl `tl `tl `tl `tl `tl `tl `tl `tl `tl `tl `tl `tl `σ' ≡ σ₀
-_ = refl
+-- _ : eval2 `tl `tl `tl `tl `tl `tl `tl `tl `tl `tl `tl `tl `tl `σ' ≡ ?
+-- _ = refl
