@@ -1,4 +1,4 @@
-module IMP.BigStep where
+module IMP.BigStep.Base where
 
 open import Data.Bool using (true; false)
 open import Data.Maybe using (Maybe; just)

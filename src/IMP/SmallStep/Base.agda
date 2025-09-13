@@ -1,4 +1,4 @@
-module IMP.SmallStep where
+module IMP.SmallStep.Base where
 
 open import Agda.Builtin.Sigma using (_,_)
 open import Data.Bool using (true; false)

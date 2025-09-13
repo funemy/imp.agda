@@ -4,8 +4,8 @@ open import Data.Maybe using (Maybe; just)
 open import Data.Product.Base using (∃-syntax; _×_; _,_)
 open import Data.Sum using (inj₁; inj₂)
 open import IMP.Base
-open import IMP.BigStep
-open import IMP.SmallStep
+open import IMP.BigStep.Base
+open import IMP.SmallStep.Base
 open import IMP.Syntax
 
 -- For any big-step intepretation that doesn't raise exceptions,

@@ -4,8 +4,8 @@ open import Data.Integer using (+_; -_)
 open import Data.Maybe as M using (just)
 open import IMP.Base
 open import IMP.Syntax
-open import IMP.BigStep
-open import IMP.SmallStep
+open import IMP.BigStep.Base
+open import IMP.SmallStep.Base
 open import Relation.Binary.PropositionalEquality using (_≡_; refl)
 
 -- Define symbols and variables X, Y, Z to make it easier to construct examples
@@ -83,7 +83,7 @@ dseq-prog1 = dseq-cons
                                     (s-while-ff refl)
                                     (dseq-id s-skip))))))
 
--- Construct the derivation sequence of prog1 using the syntactic sugar defined in `IMP.SmallStep`
+-- Construct the derivation sequence of prog1 using the syntactic sugar defined in `IMP.SmallStep.Base`
 dseq-sugared-prog1 : [ prog1 , σ₀ ]⟶* σ-prog1
 dseq-sugared-prog1 =
     σ₀ ::⟶⟨ s-seq-2 (s-assign refl) ⟩

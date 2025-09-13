@@ -2,7 +2,7 @@
 
 -- This module is defined similar to IMP.SmallStepExt, describing
 -- divergence in big-step semantics.
-module IMP.BigStepExt where
+module IMP.BigStep.Coinductive where
 
 open import Data.Bool using (true; false)
 open import Data.Empty using (⊥; ⊥-elim)
@@ -12,7 +12,7 @@ open import Data.Product.Base using (∃-syntax; _×_; _,_)
 open import Data.Sum using (_⊎_; inj₁; inj₂)
 open import IMP.Base
 open import IMP.Syntax
-open import IMP.BigStep
+open import IMP.BigStep.Base
 open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; refl)
 open import Relation.Nullary.Negation using (¬_)
 
@@ -65,8 +65,11 @@ mutual
 open [_,_]⇑ public
 
 -- skip definitely won't diverge
-skip-no-div : ∀ {σ : State} → ¬ MayDiverge σ skip
-skip-no-div ()
+skip-nodiv : ∀ {σ : State} → ¬ MayDiverge σ skip
+skip-nodiv ()
+
+-- skip-nodiv' : ∀ (σ : State) → ¬ [ skip , σ ]⇑
+-- skip-nodiv' σ deriv = {!   !}
 
 -- Soundness of the "may diverge" judgement defined above
 -- (or really, the soundness of its negation "must not diverge"),
@@ -91,13 +94,9 @@ skip-no-div ()
 ... | just true = ⊥-elim (mustnotdiv (maydiv-while eq))
 ... | nothing = exn , b-whiledo-⊥₁ eq
 
--- This is not provable, otherwise we solved halting problem?
--- skip-no-div' : ∀ (σ : State) → ¬ [ skip , σ ]⇑
--- skip-no-div' σ = {!   !}
-
 -- assign definitely won't diverge
-assign-no-div : ∀ (σ : State) (x : SSymbol) (a : Aexp) → ¬ MayDiverge σ (assign x a)
-assign-no-div σ x a ()
+assign-nodiv : ∀ (σ : State) (x : SSymbol) (a : Aexp) → ¬ MayDiverge σ (assign x a)
+assign-nodiv σ x a ()
 
 whiletrue-div : ∀ (σ : State) → [ (WHILE tt DO skip) , σ ]⇑
 whiletrue-div σ .subderiv (maydiv-while p) .subderiv maydiv-seq1 .subderiv ()

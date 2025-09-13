@@ -79,3 +79,13 @@ B⟦ eq a₁ a₂ ⟧ σ = veq (A⟦ a₁ ⟧ σ) (A⟦ a₂ ⟧ σ)
 B⟦ leq a₁ a₂ ⟧ σ = vleq (A⟦ a₁ ⟧ σ) (A⟦ a₂ ⟧ σ)
 B⟦ lneg b ⟧ σ = M.map not (B⟦ b ⟧ σ)
 B⟦ land b₁ b₂ ⟧ σ = vand (B⟦ b₁ ⟧ σ) (B⟦ b₂ ⟧ σ)
+
+A⌊_⌋ : Aexp → State → Value
+A⌊ exp ⌋ σ with A⟦ exp ⟧ σ
+... | just x = x
+... | nothing = + 0
+
+B⌊_⌋ : Bexp → State → Bool
+B⌊ exp ⌋ σ with B⟦ exp ⟧ σ
+... | just x = x
+... | nothing = false

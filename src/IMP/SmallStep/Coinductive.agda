@@ -1,4 +1,5 @@
 {-# OPTIONS --guardedness #-}
+{-# OPTIONS --allow-unsolved-metas #-}
 
 -- This module extends our small-step semantics (i.e., IMP.SmallStep)
 -- with coinductive infinite derivation sequences.
@@ -6,20 +7,24 @@
 -- `--guardedness` option, which can only be imported if the parent
 -- module also turned on the same option, hence it's more convenient
 -- to keep this separate.
-module IMP.SmallStepExt where
+module IMP.SmallStep.Coinductive where
 
-open import Data.Bool using (true; false)
+open import Data.Bool using (Bool; true; false)
 open import Data.Empty using (⊥)
+open import Data.Integer as I using (+_)
 open import Data.Maybe using (Maybe; just; nothing)
+open import Data.Nat using (z≤n)
 open import Data.Product.Base using (∃-syntax; _×_; _,_; proj₁; proj₂)
 open import Data.Sum using (_⊎_; inj₁; inj₂)
+open import Data.Unit using (⊤) renaming (tt to unit)
 open import IMP.Base
+open import IMP.Examples
 open import IMP.Syntax
-open import IMP.SmallStep
-open import Relation.Binary.PropositionalEquality using (_≡_; refl)
+open import IMP.SmallStep.Base
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; cong)
 open import Relation.Nullary.Negation using (¬_)
 
--- This coinductive record represent **infinite** derivation sequences
+-- This coinductive record **only** represent infinite derivation sequences
 -- for small-step semantics.
 --
 -- Note that this definition only covers divergence, but not terminating executions.
@@ -165,28 +170,120 @@ nodiv-while/unroll ¬trace eval trace/unroll =
     let ¬trace/stm = nodiv-while/stm ¬trace eval in
     ¬trace (s-while-tt eval ::∞ trace/unroll)
 
--- *** Fwd declaration
+-- The first attempt to define a (partial) trace for loops
+module loop-trace1 where
+    record [WHILE_DO_,_]◯ (p : Bexp) (stm : Stm) (σ : State) : Set where
+        coinductive
+        constructor ⟨_⟩::_
+        field
+            { b } : Maybe Bool
+            { σ' } : State
+            pred : B⟦ p ⟧ σ ≡ b
+            unroll : [ stm , σ ]~>* just σ'
+            loop : [WHILE p DO stm , σ' ]◯
 
--- Lemma (decomposing an infinite derivation sequence)
--- If `s1` does not diverge, then s2 must diverge
-decomp-s1⨾s2∞ :
-    { s1 s2 : Stm } { σ : State } →
-    [ s1 ⨾ s2 , σ ]⟶∞ →
-    ¬ [ s1 , σ ]⟶∞ →
-    ∃[ σ' ] [ s2 , σ' ]⟶∞
+    open [WHILE_DO_,_]◯
+
+    while-tt-skip : (σ : State) → [WHILE tt DO skip , σ ]◯
+    while-tt-skip σ .b = just true
+    while-tt-skip σ .σ' = σ
+    while-tt-skip σ .pred = refl
+    while-tt-skip σ .unroll = eseq-id s-skip
+    while-tt-skip σ .loop = while-tt-skip σ
+
+    while-t>0-t+1 :
+        -- this construction requires a loop invariant
+        (σ : State) → { v : I.ℤ } → (σ X ≡ just v) → (pf : (+ 0) I.≤ v) →
+        [WHILE (N 0) ≤? `X DO (X ← plus `X (N 1)) , σ  ]◯
+    while-t>0-t+1 _ _ _ .b = just true
+    while-t>0-t+1 σ {v} _ _ .σ' = σ [ X := v I.+ (+ 1) ]
+    while-t>0-t+1 _ v (I.+≤+ m≤n) .pred rewrite v = refl
+    while-t>0-t+1 _ {v} veq _ .unroll =
+        let pf = cong (λ x → vplus x (just (+ 1))) veq in
+        eseq-id  (s-assign pf)
+    while-t>0-t+1 σ {v} _ (I.+≤+ m≤n) .loop =
+        while-t>0-t+1 (σ [ X := v I.+ (+ 1) ]) refl (I.+≤+ z≤n)
+
+    -- This definition cannot encode terminating loops like below
+    --
+    -- while-ff-skip : (σ : State) → [WHILE ff DO skip , σ ]◯
+    -- while-ff-skip σ .b = just false
+    -- while-ff-skip σ .σ' = σ
+    -- while-ff-skip σ .pred = refl
+    -- while-ff-skip σ .unroll = eseq-id s-skip
+    -- while-ff-skip σ .loop = {!   !}
+
+mutual
+    LoopNextState : Maybe Bool → Set
+    LoopNextState (just true) = Maybe State
+    LoopNextState (just false) = ⊤
+    LoopNextState nothing = ⊤
+
+    LoopUnroll : (b : Maybe Bool) → Stm → State → LoopNextState b → Set
+    LoopUnroll (just true) stm σ σ' = [ stm , σ ]~>* σ'
+    LoopUnroll _ _ _ _ = ⊤
+
+    LoopNext : (b : Maybe Bool) → Bexp → Stm → LoopNextState b → Set
+    LoopNext (just true) p stm (just σ) = [WHILE p DO stm , σ ]◯
+    LoopNext (just true) p stm nothing = ⊤
+    LoopNext _ _ _ _ = ⊤
+
+    record [WHILE_DO_,_]◯ (p : Bexp) (stm : Stm) (σ : State) : Set where
+        coinductive
+        constructor ⟨_⟩::_
+        field
+            { b } : Maybe Bool
+            pred : B⟦ p ⟧ σ ≡ b
+            { σ' } : LoopNextState b
+            unroll : LoopUnroll b stm σ σ'
+            loop : LoopNext b p stm σ'
+
+open [WHILE_DO_,_]◯ public
+
+while-tt-skip : (σ : State) → [WHILE tt DO skip , σ ]◯
+while-tt-skip σ .b = just true
+while-tt-skip σ .pred = refl
+while-tt-skip σ .σ' = just σ
+while-tt-skip σ .unroll = eseq-id s-skip
+while-tt-skip σ .loop = while-tt-skip σ
+
+while-ff-skip : (σ : State) → [WHILE ff DO skip , σ ]◯
+while-ff-skip σ .b = just false
+while-ff-skip σ .pred = refl
+while-ff-skip σ .σ' = unit
+while-ff-skip σ .unroll = unit
+while-ff-skip σ .loop = unit
+
+-- eval/loop :
+--     (p : Bexp) (stm : Stm) (σ : State) { σ₁ : Maybe State } → [ stm , σ ]~>* σ₁ →
+--     [WHILE p DO stm , σ ]◯
+-- eval/loop p stm σ unroll .b = B⟦ p ⟧ σ
+-- eval/loop p stm σ unroll .pred = refl
+-- eval/loop p stm σ {σ₁} unroll .σ' with B⟦ p ⟧ σ
+-- ... | nothing = unit
+-- ... | just false = unit
+-- ... | just true = σ₁
+-- eval/loop p stm σ unroll .unroll with B⟦ p ⟧ σ
+-- ... | nothing = unit
+-- ... | just false = unit
+-- ... | just true = unroll
+-- eval/loop p stm σ {σ₁} unroll .loop with B⟦ p ⟧ σ
+-- ... | nothing = unit
+-- ... | just false = unit
+-- ... | just true with σ₁
+-- ...     | nothing = unit
+-- ...     | just σ₁ with B⟦ p ⟧ σ₁ in eq
+-- ...         | nothing = (⟨ eq ⟩:: unit) unit
+-- ...         | just false = (⟨ eq ⟩:: unit) unit
+-- ...         | just true = (⟨ eq ⟩:: {!  !}) {!   !}
 
 -- Lemma (non-diverging sequences implies eseq):
 -- For any non-diverging computation, there exists a corresponding eseq
 -- Proof by structural induction on statements.
--- trivial, since assignment definitely terminate
 nodiv-implies-[∙,∙]~>*∙ :
     ∀ { stm : Stm } { σ : State } →
     (¬ [ stm , σ ]⟶∞) → ∃[ σ' ] [ stm , σ ]~>* σ'
-
--- *** Fwd declaration end
-
-decomp-s1⨾s2∞ t12 ¬t1 = {!   !}
-
+-- trivial, since assignment definitely terminate
 nodiv-implies-[∙,∙]~>*∙ {assign x aexp} {σ} ¬trace with A⟦ aexp ⟧ σ in eq
 ... | just v = just (σ [ x := v ]) , eseq-id (s-assign eq)
 ... | nothing = exn , eseq-id-⊥ (s-assign-⊥ eq)
@@ -218,10 +315,8 @@ nodiv-implies-[∙,∙]~>*∙ {whiledo p stm} {σ} ¬trace with B⟦ p ⟧ σ in
 ... | nothing = exn , eseq-id-⊥ (s-while-⊥ eq)
 ... | just false = just σ , eseq-cons (s-while-ff eq) (eseq-id s-skip)
 ... | just true with nodiv-implies-[∙,∙]~>*∙ (nodiv-while/stm ¬trace eq)
-...                | just x , eseq/stm =
-                        {!   !} , {!   !}
-...                | nothing , eseq/stm =
-                        exn , eseq-cons (s-while-tt eq) (s1⊥-implies-s1⨾s2⊥ stm (whiledo p stm) σ eseq/stm)
+...                | just σ , snd = {!   !} , {!   !}
+...                | nothing , snd = exn , eseq-cons (s-while-tt eq) (s1⊥-implies-s1⨾s2⊥ stm (whiledo p stm) σ snd)
 
 -- Lemma:
 -- Programs in IMP is either terminating or non-terminating.
@@ -234,5 +329,13 @@ div-or-nodiv σ (seq stm1 stm2) with div-or-nodiv σ stm1
     let tl = s1∞-implies-s1⨾s2∞ (trace .tl) in
     inj₁ (hd ::∞ tl)
 ... | inj₂ ¬trace = {!   !}
-div-or-nodiv σ (ite p stm1 stm2) = {!   !}
-div-or-nodiv σ (whiledo p stm) = {!   !}
+div-or-nodiv σ (ite p stm1 stm2) with B⟦ p ⟧ σ in eq
+... | just true = {!   !}
+... | just false = {!   !}
+div-or-nodiv σ (ite p stm1 stm2) | nothing =
+    inj₂ (~>*-implies-nodiv (eseq-id-⊥ (s-ite-⊥ eq)))
+div-or-nodiv σ (whiledo p stm) with B⟦ p ⟧ σ in eq
+... | nothing = inj₂ ((~>*-implies-nodiv (eseq-id-⊥ (s-while-⊥ eq))))
+... | just false =
+    inj₂ (~>*-implies-nodiv (eseq-cons (s-while-ff eq) (eseq-id s-skip)))
+... | just true = {!   !}
